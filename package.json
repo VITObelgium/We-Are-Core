@@ -1,8 +1,11 @@
 {
-  "publisher": "We Are",
   "name": "@weare/weare-core",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "description": "A We Are library that contains helper methods that can be used when developing We Are apps.",
+  "author": "VITO NV",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "rollup --config rollup.config.mjs"
   },
@@ -31,6 +34,7 @@
   "dependencies": {
     "@inrupt/solid-client": "^2.1.2",
     "@inrupt/solid-client-access-grants": "^3.2.1",
+    "@inrupt/solid-client-authn-browser": "^2.3.0",
     "@inrupt/solid-client-vc": "^1.2.0",
     "jose": "^5.9.6",
     "loglevel": "^1.9.2",
