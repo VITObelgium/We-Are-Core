@@ -1,0 +1,49 @@
+{
+  "publisher": "We Are",
+  "name": "@weare/weare-core",
+  "version": "0.0.27",
+  "description": "A We Are library that contains helper methods that can be used when developing We Are apps.",
+  "scripts": {
+    "build": "rollup --config rollup.config.mjs"
+  },
+  "main": "dist/main.js",
+  "module": "dist/main.mjs",
+  "browser": "dist/browser.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/main.mjs",
+      "require": "./dist/main.js"
+    }
+  },
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "keywords": [
+    "We Are",
+    "Health",
+    "Belgium",
+    "Solid",
+    "Social Linked Data"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@inrupt/solid-client": "^2.1.2",
+    "@inrupt/solid-client-access-grants": "^3.2.1",
+    "@inrupt/solid-client-vc": "^1.2.0",
+    "jose": "^5.9.6",
+    "loglevel": "^1.9.2",
+    "n3": "^1.23.1",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@types/n3": "^1.21.1",
+    "@types/node": "^22.10.6",
+    "@types/uuid": "^10.0.0",
+    "dotenv": "^16.4.7",
+    "rollup": "^4.30.1",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "typescript": "^5.7.3"
+  }
+}

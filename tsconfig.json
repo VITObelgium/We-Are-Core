@@ -1,0 +1,22 @@
+//
+// Copyright 2024 VITO
+//
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "sourceMap": false,
+    "lib": ["es2022", "dom"],
+    "moduleResolution": "node"
+  },
+  "include": [
+    "src/**/*.ts"                             // Include all .ts files in the src directory
+  ]
+}
