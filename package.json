@@ -1,6 +1,6 @@
 {
-  "name": "@weare/weare-core",
-  "version": "1.0.0",
+  "name": "@vito-nv/weare-core",
+  "version": "1.0.1",
   "description": "A We Are library that contains helper methods that can be used when developing We Are apps.",
   "author": "VITO NV",
   "publishConfig": {
