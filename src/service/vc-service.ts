@@ -115,6 +115,7 @@ export class VcService extends Service {
 
         // <editor-fold description="Create VC shape for querying ESS service.">
         const vcShape = {
+            "@context": ["https://schema.inrupt.com/credentials/v2.jsonld"],
             type: ["SolidAccessGrant"],
             credentialSubject: {
                 providedConsent: {
