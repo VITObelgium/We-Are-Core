@@ -24,16 +24,20 @@ export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : str
     }
 
     if (resourceUrl) {
-        const containerExists = (forPersonalData: string[], resourceUrl: string) => {
+        const forPersonalData = Array.isArray(accessGrant.credentialSubject.providedConsent.forPersonalData)
+            ? accessGrant.credentialSubject.providedConsent.forPersonalData
+            : [accessGrant.credentialSubject.providedConsent.forPersonalData];
+
+        const containerExists = (data: string[], resource: string) => {
             let found = false;
-            forPersonalData.forEach((url) => {
-                if (resourceUrl.startsWith(url)) {
+            data.forEach((url) => {
+                if (resource.startsWith(url)) {
                     found = true;
                 }
             });
             return found;
         }
-        if (!accessGrant.credentialSubject.providedConsent.forPersonalData.includes(resourceUrl) && !containerExists(accessGrant.credentialSubject.providedConsent.forPersonalData, resourceUrl)) {
+        if (!forPersonalData.includes(resourceUrl) && !containerExists(forPersonalData, resourceUrl)) {
             const message = `Resource [${resourceUrl}] nor its container is not part of the access grant [${accessGrant.id}].`;
             throw new Error(message);
         }

@@ -37,7 +37,7 @@ export class PodService extends Service {
             resourceUrl.href,
             accessGrant,
             {
-                fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind(this.oidcConfig)})
+                fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})
             }
         );
     }
@@ -60,7 +60,7 @@ export class PodService extends Service {
             context.correlationId = correlationId;
 
         return await saveSolidDatasetAt(resourceUrl.href, solidDataset, accessGrant, {
-            fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind(this.oidcConfig)})
+            fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})
         });
     };
 
@@ -81,7 +81,7 @@ export class PodService extends Service {
             context.correlationId = correlationId;
 
         return await deleteSolidDataset(resourceUrl.href, accessGrant, {
-            fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind(this.oidcConfig)})
+            fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})
         });
     };
 
@@ -107,7 +107,7 @@ export class PodService extends Service {
             {
                 fetch: createFetchWithCorrelationAndRequestId.bind({
                     ...context,
-                    fetchFn: createFetchWithIdToken.bind(this.oidcConfig)
+                    fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})
                 })
             }
         );
@@ -137,7 +137,7 @@ export class PodService extends Service {
             {
                 fetch: createFetchWithCorrelationAndRequestId.bind({
                     ...context,
-                    fetchFn: createFetchWithIdToken.bind(this.oidcConfig)
+                    fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})
                 })
             }
         );

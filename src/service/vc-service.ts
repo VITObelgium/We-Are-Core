@@ -68,7 +68,7 @@ export class VcService extends Service {
                 accessEndpoint: this.vcConfig.issueEndpoint!.href,
                 fetch: createFetchWithCorrelationAndRequestId.bind({
                     ...context,
-                    fetchFn: createFetchWithAccessToken.bind(this.oidcConfig)
+                    fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})
                 })
             }
         );
@@ -91,7 +91,7 @@ export class VcService extends Service {
             id,
         {
             fetch: createFetchWithCorrelationAndRequestId.bind({
-                ...context, fetchFn: createFetchWithAccessToken.bind(this.oidcConfig)
+                ...context, fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})
             })
         });
     }
@@ -158,7 +158,7 @@ export class VcService extends Service {
             context.correlationId = correlationId;
 
         return (await getVerifiableCredentialAllFromShape(this.vcConfig.deriveEndpoint!.href, vcShape, {
-            fetch: createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: createFetchWithAccessToken.bind(this.oidcConfig)}),
+            fetch: createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})}),
         })) as AccessGrant[];
     }
 

@@ -1,4 +1,4 @@
-import { JWK } from "jose";
+import { decodeJwt, JWK } from "jose";
 import log from "loglevel";
 import {createDpop} from "../factory/token-factory";
 import {Service} from "./service";
@@ -9,6 +9,8 @@ import {isRunningInDocker} from "@we-are-components/shared";
  */
 export class TokenService extends Service {
 
+    private tokenCache = new Map<string, any>();
+
     /**
      * Requests an access token.
      * @param {string} [dpopHeader] - Optional DPoP header.
@@ -17,6 +19,21 @@ export class TokenService extends Service {
      */
     async requestAccessToken(dpopHeader?: string, scopes = ""): Promise<any> {
         if(!this.oidcConfig) throw Error("[TokenService.requestAccessToken] OIDC configuration is required to request access token from We Are OIDC.");
+
+        const accessTokenCacheKey = `at:${scopes}`;
+        const idTokenCacheKey = `id:${scopes}`;
+
+        const cachedAccessToken = this.tokenCache.get(accessTokenCacheKey);
+        const cachedIdToken = this.tokenCache.get(idTokenCacheKey);
+        const now = Math.floor(Date.now() / 1000);
+
+        if (cachedAccessToken && cachedAccessToken.exp > now && cachedIdToken && cachedIdToken.exp > now) {
+            log.debug(`[requestAccessToken] Returning cached tokens for scopes [${scopes}]`);
+            return {
+                ...cachedAccessToken.token,
+                ...cachedIdToken.token
+            };
+        }
 
         const body = new URLSearchParams({
             grant_type: 'client_credentials',
@@ -39,8 +56,30 @@ export class TokenService extends Service {
             },
             body: new URLSearchParams(body)
         });
+        
+        const json = await response.json();
+        
+        if (json.access_token) {
+            const decodedAccessToken: any = decodeJwt(json.access_token);
+            if (decodedAccessToken?.exp) {
+                this.tokenCache.set(accessTokenCacheKey, {
+                    token: { access_token: json.access_token },
+                    exp: decodedAccessToken.exp
+                });
+            }
+        }
 
-        return await response.json();
+        if (json.id_token) {
+            const decodedIdToken: any = decodeJwt(json.id_token);
+            if (decodedIdToken?.exp) {
+                this.tokenCache.set(idTokenCacheKey, {
+                    token: { id_token: json.id_token },
+                    exp: decodedIdToken.exp
+                });
+            }
+        }
+
+        return json;
     }
 
     /**
