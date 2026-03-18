@@ -2,7 +2,6 @@ import { decodeJwt, JWK } from "jose";
 import log from "loglevel";
 import {createDpop} from "../factory/token-factory";
 import {Service} from "./service";
-import {isRunningInDocker} from "@we-are-components/shared";
 
 /**
  * Service class for handling token requests.
