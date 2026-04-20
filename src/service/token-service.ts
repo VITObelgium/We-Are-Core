@@ -24,9 +24,9 @@ export class TokenService extends Service {
 
         const cachedAccessToken = this.tokenCache.get(accessTokenCacheKey);
         const cachedIdToken = this.tokenCache.get(idTokenCacheKey);
-        const now = Math.floor(Date.now() / 1000);
+        const fiveSecondsIntoTheFuture = Math.floor(Date.now() / 1000) + 5;
 
-        if (cachedAccessToken && cachedAccessToken.exp > now && cachedIdToken && cachedIdToken.exp > now) {
+        if (cachedAccessToken && cachedAccessToken.exp > fiveSecondsIntoTheFuture && cachedIdToken && cachedIdToken.exp > fiveSecondsIntoTheFuture) {
             log.debug(`[requestAccessToken] Returning cached tokens for scopes [${scopes}]`);
             return {
                 ...cachedAccessToken.token,
