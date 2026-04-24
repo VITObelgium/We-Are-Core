@@ -10,6 +10,7 @@ import {createFetchWithAccessToken, createFetchWithCorrelationAndRequestId} from
 import {Service} from "./service";
 import {OidcConfig} from "../oidc-config";
 import {VcConfig} from "../vc-config";
+import {TokenService} from "./token-service";
 
 /**
  * Service class for handling Verifiable Credential (VC) operations.
@@ -21,9 +22,10 @@ export class VcService extends Service {
      * Creates an instance of VcService.
      * @param {OidcConfig} oidcConfig - The OIDC configuration.
      * @param {VcConfig} vcConfig - The VC configuration.
+     * @param tokenService
      */
-    constructor(oidcConfig: OidcConfig, vcConfig: VcConfig) {
-        super(oidcConfig);
+    constructor(oidcConfig: OidcConfig, vcConfig: VcConfig, tokenService?: TokenService) {
+        super(oidcConfig, tokenService);
         this.vcConfig = vcConfig;
     }
 
