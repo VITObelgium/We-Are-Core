@@ -43,9 +43,14 @@ export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : str
         }
     }
 
-    if (mode && !accessGrant.credentialSubject.providedConsent.mode.includes(mode)) {
-        const message = `Access grant [${accessGrant.id}] does not have mode "${mode}".`;
-        throw new Error(message);
+
+    if (mode) {
+        const normalized = mode.startsWith('http://www.w3.org/ns/auth/acl#') ? mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase() : `http://www.w3.org/ns/auth/acl#${mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()}`;
+
+        if (!accessGrant.credentialSubject.providedConsent.mode.includes(normalized)) {
+            const message = `Access grant [${accessGrant.id}] does not have mode "${normalized}".`;
+            throw new Error(message);
+        }
     }
 
     if (options?.recipientWebId && accessGrant.credentialSubject.providedConsent.isProvidedTo !== options?.recipientWebId) {
