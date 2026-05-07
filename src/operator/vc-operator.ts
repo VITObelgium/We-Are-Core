@@ -1,16 +1,18 @@
 import {AccessGrant} from "@inrupt/solid-client-access-grants";
 import log from "loglevel";
 
+export type Mode = 'Read' | 'Write' | 'Append' | 'http://www.w3.org/ns/auth/acl#Read' | 'http://www.w3.org/ns/auth/acl#Write' | 'http://www.w3.org/ns/auth/acl#Append';
+
 /**
  * Validates an access grant's validity.
  * @param {AccessGrant} accessGrant - The access grant to validate.
  * @param {string} [resourceUrl] - The URL of the resource to check against the access grant.
- * @param {'Read'|'Write'|'Append'} [mode] - The access mode to check against the access grant.
+ * @param modes
  * @param {Object} [options] - Additional validation options.
  * @param {string} [options.recipientWebId] - The WebID of the recipient to check against the access grant.
  * @throws Will throw an error if the access grant is not valid.
  */
-export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : string, mode? : 'Read'|'Write'|'Append', options?:{ recipientWebId?: string }) => {
+export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : string, modes? : Mode[]|Mode, options?:{ recipientWebId?: string }) => {
     log.debug(`[validateAccessGrant] Validating access grant [${accessGrant.id}].`);
 
     if (accessGrant.credentialSubject.providedConsent.hasStatus !== "ConsentStatusExplicitlyGiven") {
@@ -44,8 +46,17 @@ export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : str
     }
 
 
-    if (mode) {
-        const normalized = mode.startsWith('http://www.w3.org/ns/auth/acl#') ? mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase() : `http://www.w3.org/ns/auth/acl#${mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()}`;
+    if (Array.isArray(modes)) {
+        for(let mode of modes) {
+            const normalized = mode.startsWith('http://www.w3.org/ns/auth/acl#') ? `http://www.w3.org/ns/auth/acl#${mode.charAt('http://www.w3.org/ns/auth/acl#'.length).toUpperCase() + mode.slice('http://www.w3.org/ns/auth/acl#'.length + 1).toLowerCase()}` : `http://www.w3.org/ns/auth/acl#${mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()}`;
+
+            if (!accessGrant.credentialSubject.providedConsent.mode.includes(normalized)) {
+                const message = `Access grant [${accessGrant.id}] does not have mode "${normalized}".`;
+                throw new Error(message);
+            }
+        }
+    } else if(modes) {
+        const normalized = modes.startsWith('http://www.w3.org/ns/auth/acl#') ? `http://www.w3.org/ns/auth/acl#${modes.charAt('http://www.w3.org/ns/auth/acl#'.length).toUpperCase() + modes.slice('http://www.w3.org/ns/auth/acl#'.length + 1).toLowerCase()}` : `http://www.w3.org/ns/auth/acl#${modes.charAt(0).toUpperCase() + modes.slice(1).toLowerCase()}`;
 
         if (!accessGrant.credentialSubject.providedConsent.mode.includes(normalized)) {
             const message = `Access grant [${accessGrant.id}] does not have mode "${normalized}".`;
