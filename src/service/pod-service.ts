@@ -2,16 +2,25 @@ import { decodeJwt } from "jose";
 import log from "loglevel";
 import {SolidDataset, UrlString, WithResourceInfo, WithServerResourceInfo} from "@inrupt/solid-client";
 import {
-    AccessGrant, DatasetWithId, deleteSolidDataset,
+    AccessGrant,
+    DatasetWithId
+} from "@inrupt/solid-client-access-grants";
+import {
+    deleteSolidDataset,
     getFile,
     getSolidDataset,
     overwriteFile,
     saveSolidDatasetAt
-} from "@inrupt/solid-client-access-grants";
-import { createFetchWithCorrelationAndRequestId, createFetchWithIdToken } from "../factory/fetch-factory";
+} from "@inrupt/solid-client";
+import {
+    createFetchWithAccessToken,
+    createFetchWithCorrelationAndRequestId,
+    createFetchWithIdToken
+} from "../factory/fetch-factory";
 import { validateAccessGrant } from "../operator/vc-operator";
 import { Service } from "./service";
 import {VerifiableCredential} from "@inrupt/solid-client-vc";
+import {v4} from "uuid";
 
 const WWW_AUTH_HEADER = "www-authenticate";
 const VC_CLAIM_TOKEN_TYPE = "https://www.w3.org/TR/vc-data-model/#json-ld";
@@ -68,7 +77,49 @@ class UmaTokenCache {
         }
     }
 
+    getBy(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrantId: string): { token: string; exp: number } | undefined {
+        const exactKey = `${resourceUrl}:${mode}:${accessGrantId}`;
+        const exactMatch = this.get(exactKey);
+        if (exactMatch) {
+            if(exactMatch.exp > new Date().getTime() / 1000)
+                return exactMatch;
+            else
+                this.cache.delete(exactKey);
+        }
 
+        // If not found, check if there is a token for a parent container
+        let currentUrl = resourceUrl;
+        while (currentUrl.includes('/') && currentUrl !== 'https://' && currentUrl !== 'http://') {
+            // Remove the last part of the path
+            // If it ends with /, remove it first to get the parent
+            if (currentUrl.endsWith('/')) {
+                currentUrl = currentUrl.substring(0, currentUrl.length - 1);
+            }
+            
+            const lastSlashIndex = currentUrl.lastIndexOf('/');
+            if (lastSlashIndex === -1) break;
+            
+            currentUrl = currentUrl.substring(0, lastSlashIndex + 1); // Keep the slash at the end
+            
+            if (currentUrl === 'https://' || currentUrl === 'http://' || currentUrl === '') break;
+
+            const containerKey = `${currentUrl}:${mode}:${accessGrantId}`;
+            const containerMatch = this.get(containerKey);
+            if (containerMatch) {
+                if(containerMatch.exp > new Date().getTime() / 1000)
+                    return containerMatch;
+                else
+                    this.cache.delete(containerKey);
+            }
+        }
+
+        return undefined;
+    }
+
+    setBy(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrantId: string, value: { token: string; exp: number }): void {
+        const key = `${resourceUrl}:${mode}:${accessGrantId}`;
+        this.set(key, value);
+    }
 
     get(key: string): { token: string; exp: number } | undefined {
         const entry = this.cache.get(key);
@@ -168,30 +219,38 @@ async function exchangeTicketForAccessToken(
  * Service class for interacting with Solid Pods.
  */
 export class PodService extends Service {
-
     private umaTokenCache = new UmaTokenCache();
     private umaConfigCache = new UmaConfigurationCache();
 
-    async fetchUmaToken(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrant: AccessGrant): Promise<string> {
+    private createUmaFetch(accessToken: string, options? : {correlationId?: string}): typeof fetch {
+        return createFetchWithCorrelationAndRequestId.bind({
+            correlationId: options?.correlationId,
+            fetchFn: (url: RequestInfo | URL, init?: RequestInit) => {
+                const headers = new Headers(init?.headers || {});
+                headers.set("Authorization", `Bearer ${accessToken}`);
+                return fetch(url, {
+                    ...init,
+                    headers
+                });
+            }
+        }) as any;
+    }
+
+    async retrieveUmaToken(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrant: AccessGrant, options?: {correlationId?: string}): Promise<string> {
         if(!this.oidcConfig) throw Error("[PodService.fetchUmaToken] OIDC configuration is required to fetch an UMA token.");
 
-        const forPersonalData = accessGrant.credentialSubject.providedConsent.forPersonalData;
-        const agResourceUrl = Array.isArray(forPersonalData) ? forPersonalData[0] : forPersonalData;
-        const cacheKey = `${agResourceUrl}:${mode}:${accessGrant.id}`;
+        const cachedToken = this.umaTokenCache.getBy(resourceUrl, mode, accessGrant.id);
 
-        const cachedToken = this.umaTokenCache.get(cacheKey);
-        const fiveSecondsIntoTheFuture = Math.floor(Date.now() / 1000) + 5;
-
-        if (cachedToken && cachedToken.exp > fiveSecondsIntoTheFuture) {
-            log.debug(`[fetchUmaToken] Returning cached UMA token for key [${cacheKey}].`);
+        if(cachedToken) {
             return cachedToken.token;
         }
 
         validateAccessGrant(accessGrant, resourceUrl, mode);
 
-        // Use an unauthenticated session to fetch the resource so that we can parse
-        // its headers to find the UMA endpoint information and ticket
-        const errorResponse = await fetch(agResourceUrl);
+        const context = {} as { correlationId?: string };
+        context.correlationId = options?.correlationId ?? v4();
+
+        const errorResponse = await createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})(resourceUrl);
         const { headers } = errorResponse;
 
         const wwwAuthentication = headers.get(WWW_AUTH_HEADER);
@@ -214,10 +273,7 @@ export class PodService extends Service {
         const umaConfiguration = await this.getUmaConfiguration(authIri);
         const tokenEndpoint = umaConfiguration.token_endpoint;
 
-        const umaAuthedFetch = createFetchWithIdToken.bind({
-            oidc_config: this.oidcConfig,
-            token_service: this.tokenService,
-        });
+        const umaAuthedFetch = createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})});
 
         const umaAccessToken = await exchangeTicketForAccessToken(
             tokenEndpoint,
@@ -233,10 +289,7 @@ export class PodService extends Service {
         const decodedToken: any = decodeJwt(umaAccessToken);
         const exp = decodedToken?.exp;
 
-        this.umaTokenCache.set(cacheKey, {
-            token: umaAccessToken,
-            exp
-        });
+        this.umaTokenCache.setBy(resourceUrl, mode, accessGrant.id, { token: umaAccessToken, exp });
 
         return umaAccessToken;
     }
@@ -248,21 +301,21 @@ export class PodService extends Service {
      * @param {string} [correlationId] - Optional correlation ID for logging.
      * @returns {Promise<SolidDataset & WithResourceInfo>} A promise that resolves to the fetched SolidDataset.
      */
-    async getSolidDataset(resourceUrl: URL, accessGrant: AccessGrant, correlationId?: string): Promise<SolidDataset & WithResourceInfo> {
+    async getSolidDataset(resourceUrl: URL, accessGrant: AccessGrant, options? : { correlationId?: string }): Promise<SolidDataset & WithResourceInfo> {
         if(!this.oidcConfig) throw Error("[PodService.getSolidDataset] OIDC configuration is required to fetch a solid dataset.");
 
         log.debug(`Fetching resource [${resourceUrl}] with access grant [${accessGrant.id}].`);
         validateAccessGrant(accessGrant, resourceUrl.href, 'Read');
 
-        const context = {} as { correlationId? : string };
-        if(correlationId)
-            context.correlationId = correlationId;
+        const correlationId = options?.correlationId ?? v4();
+
+        const umaToken = await this.retrieveUmaToken(resourceUrl.href, 'Read', accessGrant, { correlationId: correlationId });
+        const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
 
         return await getSolidDataset(
             resourceUrl.href,
-            accessGrant,
             {
-                fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})
+                fetch: authFetch
             }
         );
     }
@@ -275,17 +328,18 @@ export class PodService extends Service {
      * @param {string} [correlationId] - Optional correlation ID for logging.
      * @returns {Promise<null | any>} A promise that resolves when the dataset is written.
      */
-    async writeSolidDataset(resourceUrl: URL, solidDataset: SolidDataset, accessGrant: AccessGrant, correlationId?: string ): Promise<null | any> {
+    async writeSolidDataset(resourceUrl: URL, solidDataset: SolidDataset, accessGrant: AccessGrant, options? : { correlationId?: string } ): Promise<null | any> {
         if(!this.oidcConfig) throw Error("[PodService.writeSolidDataset] OIDC configuration is required to write a solid dataset.");
 
         validateAccessGrant(accessGrant, resourceUrl.href, 'Write');
 
-        const context = {} as { correlationId? : string };
-        if(correlationId)
-            context.correlationId = correlationId;
+        const correlationId = options?.correlationId ?? v4();
 
-        return await saveSolidDatasetAt(resourceUrl.href, solidDataset, accessGrant, {
-            fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})
+        const umaToken = await this.retrieveUmaToken(resourceUrl.href, 'Write', accessGrant, { correlationId: correlationId });
+        const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
+
+        return await saveSolidDatasetAt(resourceUrl.href, solidDataset, {
+            fetch: authFetch
         });
     };
 
@@ -296,17 +350,18 @@ export class PodService extends Service {
      * @param {string} [correlationId] - Optional correlation ID for logging.
      * @returns {Promise<null | any>} A promise that resolves when the dataset is deleted.
      */
-    async deleteSolidDataset(resourceUrl: URL, accessGrant: AccessGrant, correlationId?: string ): Promise<null | any> {
+    async deleteSolidDataset(resourceUrl: URL, accessGrant: AccessGrant, options?: { correlationId?: string } ): Promise<null | any> {
         if(!this.oidcConfig) throw Error("[PodService.getSolidDataset] OIDC configuration is required to delete a solid dataset.");
 
         validateAccessGrant(accessGrant, resourceUrl.href, 'Write');
 
-        const context = {} as { correlationId? : string };
-        if(correlationId)
-            context.correlationId = correlationId;
+        const correlationId = options?.correlationId ?? v4();
 
-        return await deleteSolidDataset(resourceUrl.href, accessGrant, {
-            fetch: createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})
+        const umaToken = await this.retrieveUmaToken(resourceUrl.href, 'Write', accessGrant, { correlationId: correlationId });
+        const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
+
+        return await deleteSolidDataset(resourceUrl.href, {
+            fetch: authFetch
         });
     };
 
@@ -317,23 +372,20 @@ export class PodService extends Service {
      * @param {string} [correlationId] - Optional correlation ID for logging.
      * @returns {Promise<Blob & WithServerResourceInfo>} A promise that resolves to the fetched file.
      */
-    async getFile(resourceUrl: URL, accessGrant: AccessGrant, correlationId?: string): Promise<Blob & WithServerResourceInfo> {
+    async getFile(resourceUrl: URL, accessGrant: AccessGrant, options?: { correlationId?: string }): Promise<Blob & WithServerResourceInfo> {
         if(!this.oidcConfig) throw Error("[PodService.getFile] OIDC configuration is required to retrieve a file.");
 
         validateAccessGrant(accessGrant, resourceUrl.href, 'Read');
 
-        const context = {} as { correlationId? : string };
-        if(correlationId)
-            context.correlationId = correlationId;
+        const correlationId = options?.correlationId ?? v4();
+
+        const umaToken = await this.retrieveUmaToken(resourceUrl.href, 'Read', accessGrant, { correlationId: correlationId });
+        const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
 
         return await getFile(
             resourceUrl.href,
-            accessGrant,
             {
-                fetch: createFetchWithCorrelationAndRequestId.bind({
-                    ...context,
-                    fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})
-                })
+                fetch: authFetch
             }
         );
     }
@@ -346,24 +398,21 @@ export class PodService extends Service {
      * @param {string} [correlationId] - Optional correlation ID for logging.
      * @returns {Promise<File & WithServerResourceInfo & any>} A promise that resolves to the written file.
      */
-    async writeFile(fileUrl: URL, file: File | Blob, accessGrant: AccessGrant, correlationId?: string): Promise<File & WithServerResourceInfo & any> {
+    async writeFile(fileUrl: URL, file: File | Blob, accessGrant: AccessGrant, options?: { correlationId?: string }): Promise<File & WithServerResourceInfo & any> {
         if(!this.oidcConfig) throw Error("[PodService.writeFile] OIDC configuration is required to write a file.");
 
         validateAccessGrant(accessGrant, fileUrl.href, 'Read');
 
-        const context = {} as { correlationId? : string };
-        if(correlationId)
-            context.correlationId = correlationId;
+        const correlationId = options?.correlationId ?? v4();
+
+        const umaToken = await this.retrieveUmaToken(fileUrl.href, 'Read', accessGrant, { correlationId: correlationId });
+        const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
 
         return await overwriteFile(
             fileUrl.href,
             file,
-            accessGrant,
             {
-                fetch: createFetchWithCorrelationAndRequestId.bind({
-                    ...context,
-                    fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})
-                })
+                fetch: authFetch
             }
         );
     }
