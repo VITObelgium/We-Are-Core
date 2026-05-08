@@ -214,6 +214,7 @@ async function exchangeTicketForAccessToken(
 export class PodService extends Service {
     private umaTokenCache = new UmaTokenCache();
     private umaConfigCache = new UmaConfigurationCache();
+    private inProgressUmaRequests = new Map<string, Promise<string>>();
 
     private createUmaFetch(accessToken: string, options? : {correlationId?: string}): typeof fetch {
         return createFetchWithCorrelationAndRequestId.bind({
@@ -238,54 +239,70 @@ export class PodService extends Service {
             return cachedToken.token;
         }
 
-        validateAccessGrant(accessGrant, resourceUrl, mode);
-
-        const context = {} as { correlationId?: string };
-        context.correlationId = options?.correlationId ?? v4();
-
-        // Todo: Use an authenticated fetch for now which returns a 403 w/ the permission ticket. If we don't pass an authed fetch the pod service will return 401 and the firewall might block the call due to a brute force policy.
-        const errorResponse = await createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})(resourceUrl);
-        const { headers } = errorResponse;
-
-        const wwwAuthentication = headers.get(WWW_AUTH_HEADER);
-
-        if (!wwwAuthentication) {
-            throw new UmaError(NO_WWW_AUTH_HEADER_ERROR);
+        const requestKey = `${resourceUrl}:${mode}:${accessGrant.id}`;
+        const inProgressRequest = this.inProgressUmaRequests.get(requestKey);
+        if (inProgressRequest) {
+            return inProgressRequest;
         }
 
-        const authTicket = parseUMAAuthTicket(wwwAuthentication);
-        const authIri = parseUMAAuthIri(wwwAuthentication);
+        const requestPromise = (async () => {
+            try {
+                validateAccessGrant(accessGrant, resourceUrl, mode);
 
-        if (!authTicket) {
-            throw new UmaError(NO_WWW_AUTH_HEADER_UMA_TICKET_ERROR);
-        }
+                const context = {} as { correlationId?: string };
+                context.correlationId = options?.correlationId ?? v4();
 
-        if (!authIri) {
-            throw new UmaError(NO_WWW_AUTH_HEADER_UMA_IRI_ERROR);
-        }
+                // Todo: Use an authenticated fetch for now which returns a 403 w/ the permission ticket. If we don't pass an authed fetch the pod service will return 401 and the firewall might block the call due to a brute force policy.
+                const errorResponse = await createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})(resourceUrl);
+                const { headers } = errorResponse;
 
-        const umaConfiguration = await this.getUmaConfiguration(authIri);
-        const tokenEndpoint = umaConfiguration.token_endpoint;
+                const wwwAuthentication = headers.get(WWW_AUTH_HEADER);
 
-        const umaAuthedFetch = createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})});
+                if (!wwwAuthentication) {
+                    throw new UmaError(NO_WWW_AUTH_HEADER_ERROR);
+                }
 
-        const umaAccessToken = await exchangeTicketForAccessToken(
-            tokenEndpoint,
-            accessGrant,
-            authTicket,
-            umaAuthedFetch as any,
-        );
+                const authTicket = parseUMAAuthTicket(wwwAuthentication);
+                const authIri = parseUMAAuthIri(wwwAuthentication);
 
-        if (!umaAccessToken) {
-            throw new UmaError(NO_ACCESS_TOKEN_RETURNED);
-        }
+                if (!authTicket) {
+                    throw new UmaError(NO_WWW_AUTH_HEADER_UMA_TICKET_ERROR);
+                }
 
-        const decodedToken: any = decodeJwt(umaAccessToken);
-        const exp = decodedToken?.exp;
+                if (!authIri) {
+                    throw new UmaError(NO_WWW_AUTH_HEADER_UMA_IRI_ERROR);
+                }
 
-        this.umaTokenCache.setBy(resourceUrl, mode, accessGrant, { token: umaAccessToken, exp });
+                const umaConfiguration = await this.getUmaConfiguration(authIri);
+                const tokenEndpoint = umaConfiguration.token_endpoint;
 
-        return umaAccessToken;
+                const umaAuthedFetch = createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithIdToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})});
+
+                const umaAccessToken = await exchangeTicketForAccessToken(
+                    tokenEndpoint,
+                    accessGrant,
+                    authTicket,
+                    umaAuthedFetch as any,
+                );
+
+                if (!umaAccessToken) {
+                    throw new UmaError(NO_ACCESS_TOKEN_RETURNED);
+                }
+
+                const decodedToken: any = decodeJwt(umaAccessToken);
+                const exp = decodedToken?.exp;
+
+                this.umaTokenCache.setBy(resourceUrl, mode, accessGrant, { token: umaAccessToken, exp });
+
+                return umaAccessToken;
+            } finally {
+                this.inProgressUmaRequests.delete(requestKey);
+            }
+        })();
+
+        this.inProgressUmaRequests.set(requestKey, requestPromise);
+
+        return requestPromise;
     }
 
     /**
