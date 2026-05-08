@@ -77,8 +77,8 @@ class UmaTokenCache {
         }
     }
 
-    getBy(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrantId: string): { token: string; exp: number } | undefined {
-        const exactKey = `${resourceUrl}:${mode}:${accessGrantId}`;
+    getBy(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrant: AccessGrant): { token: string; exp: number } | undefined {
+        const exactKey = `${resourceUrl}:${mode}:${accessGrant.id}`;
         const exactMatch = this.get(exactKey);
         if (exactMatch) {
             if(exactMatch.exp > new Date().getTime() / 1000)
@@ -87,26 +87,19 @@ class UmaTokenCache {
                 this.cache.delete(exactKey);
         }
 
-        // If not found, check if there is a token for a parent container
-        let currentUrl = resourceUrl;
-        while (currentUrl.includes('/') && currentUrl !== 'https://' && currentUrl !== 'http://') {
-            // Remove the last part of the path
-            // If it ends with /, remove it first to get the parent
-            if (currentUrl.endsWith('/')) {
-                currentUrl = currentUrl.substring(0, currentUrl.length - 1);
-            }
-            
-            const lastSlashIndex = currentUrl.lastIndexOf('/');
-            if (lastSlashIndex === -1) break;
-            
-            currentUrl = currentUrl.substring(0, lastSlashIndex + 1); // Keep the slash at the end
-            
-            if (currentUrl === 'https://' || currentUrl === 'http://' || currentUrl === '') break;
+        const forPersonalData = Array.isArray(accessGrant.credentialSubject.providedConsent.forPersonalData)
+            ? accessGrant.credentialSubject.providedConsent.forPersonalData
+            : [accessGrant.credentialSubject.providedConsent.forPersonalData];
 
-            const containerKey = `${currentUrl}:${mode}:${accessGrantId}`;
+        const matchedContainer = forPersonalData.find((entry: string) => {
+            return entry.endsWith('/') && resourceUrl.startsWith(entry);
+        });
+
+        if (matchedContainer) {
+            const containerKey = `${matchedContainer}:${mode}:${accessGrant.id}`;
             const containerMatch = this.get(containerKey);
             if (containerMatch) {
-                if(containerMatch.exp > new Date().getTime() / 1000)
+                if (containerMatch.exp > new Date().getTime() / 1000)
                     return containerMatch;
                 else
                     this.cache.delete(containerKey);
@@ -116,8 +109,8 @@ class UmaTokenCache {
         return undefined;
     }
 
-    setBy(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrantId: string, value: { token: string; exp: number }): void {
-        const key = `${resourceUrl}:${mode}:${accessGrantId}`;
+    setBy(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrant: AccessGrant, value: { token: string; exp: number }): void {
+        const key = `${resourceUrl}:${mode}:${accessGrant.id}`;
         this.set(key, value);
     }
 
@@ -239,7 +232,7 @@ export class PodService extends Service {
     async retrieveUmaToken(resourceUrl: string, mode: 'Read'|'Write'|'Append', accessGrant: AccessGrant, options?: {correlationId?: string}): Promise<string> {
         if(!this.oidcConfig) throw Error("[PodService.fetchUmaToken] OIDC configuration is required to fetch an UMA token.");
 
-        const cachedToken = this.umaTokenCache.getBy(resourceUrl, mode, accessGrant.id);
+        const cachedToken = this.umaTokenCache.getBy(resourceUrl, mode, accessGrant);
 
         if(cachedToken) {
             return cachedToken.token;
@@ -290,7 +283,7 @@ export class PodService extends Service {
         const decodedToken: any = decodeJwt(umaAccessToken);
         const exp = decodedToken?.exp;
 
-        this.umaTokenCache.setBy(resourceUrl, mode, accessGrant.id, { token: umaAccessToken, exp });
+        this.umaTokenCache.setBy(resourceUrl, mode, accessGrant, { token: umaAccessToken, exp });
 
         return umaAccessToken;
     }
