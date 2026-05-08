@@ -250,6 +250,7 @@ export class PodService extends Service {
         const context = {} as { correlationId?: string };
         context.correlationId = options?.correlationId ?? v4();
 
+        // Todo: Use an authenticated fetch for now which returns a 403 w/ the permission ticket. If we don't pass an authed fetch the pod service will return 401 and the firewall might block the call due to a brute force policy.
         const errorResponse = await createFetchWithCorrelationAndRequestId.bind({ ...context, fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})})(resourceUrl);
         const { headers } = errorResponse;
 
@@ -309,7 +310,15 @@ export class PodService extends Service {
 
         const correlationId = options?.correlationId ?? v4();
 
-        const umaToken = await this.retrieveUmaToken(resourceUrl.href, 'Read', accessGrant, { correlationId: correlationId });
+        const forPersonalData = Array.isArray(accessGrant.credentialSubject.providedConsent.forPersonalData)
+            ? accessGrant.credentialSubject.providedConsent.forPersonalData
+            : [accessGrant.credentialSubject.providedConsent.forPersonalData];
+
+        const matchedPersonalData = forPersonalData.find((entry: string) => {
+            return resourceUrl.href === entry || (entry.endsWith('/') && resourceUrl.href.startsWith(entry));
+        });
+
+        const umaToken = await this.retrieveUmaToken(matchedPersonalData!, 'Read', accessGrant, { correlationId: correlationId });
         const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
 
         return await getSolidDataset(
@@ -335,7 +344,15 @@ export class PodService extends Service {
 
         const correlationId = options?.correlationId ?? v4();
 
-        const umaToken = await this.retrieveUmaToken(resourceUrl.href, 'Write', accessGrant, { correlationId: correlationId });
+        const forPersonalData = Array.isArray(accessGrant.credentialSubject.providedConsent.forPersonalData)
+            ? accessGrant.credentialSubject.providedConsent.forPersonalData
+            : [accessGrant.credentialSubject.providedConsent.forPersonalData];
+        
+        const matchedPersonalData = forPersonalData.find((entry: string) => {
+            return resourceUrl.href === entry || (entry.endsWith('/') && resourceUrl.href.startsWith(entry));
+        });
+
+        const umaToken = await this.retrieveUmaToken(matchedPersonalData!, 'Write', accessGrant, { correlationId: correlationId });
         const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
 
         return await saveSolidDatasetAt(resourceUrl.href, solidDataset, {
@@ -357,7 +374,15 @@ export class PodService extends Service {
 
         const correlationId = options?.correlationId ?? v4();
 
-        const umaToken = await this.retrieveUmaToken(resourceUrl.href, 'Write', accessGrant, { correlationId: correlationId });
+        const forPersonalData = Array.isArray(accessGrant.credentialSubject.providedConsent.forPersonalData)
+            ? accessGrant.credentialSubject.providedConsent.forPersonalData
+            : [accessGrant.credentialSubject.providedConsent.forPersonalData];
+
+        const matchedPersonalData = forPersonalData.find((entry: string) => {
+            return resourceUrl.href === entry || (entry.endsWith('/') && resourceUrl.href.startsWith(entry));
+        });
+
+        const umaToken = await this.retrieveUmaToken(matchedPersonalData!, 'Write', accessGrant, { correlationId: correlationId });
         const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
 
         return await deleteSolidDataset(resourceUrl.href, {
@@ -379,7 +404,15 @@ export class PodService extends Service {
 
         const correlationId = options?.correlationId ?? v4();
 
-        const umaToken = await this.retrieveUmaToken(resourceUrl.href, 'Read', accessGrant, { correlationId: correlationId });
+        const forPersonalData = Array.isArray(accessGrant.credentialSubject.providedConsent.forPersonalData)
+            ? accessGrant.credentialSubject.providedConsent.forPersonalData
+            : [accessGrant.credentialSubject.providedConsent.forPersonalData];
+
+        const matchedPersonalData = forPersonalData.find((entry: string) => {
+            return resourceUrl.href === entry || (entry.endsWith('/') && resourceUrl.href.startsWith(entry));
+        });
+
+        const umaToken = await this.retrieveUmaToken(matchedPersonalData!, 'Read', accessGrant, { correlationId: correlationId });
         const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
 
         return await getFile(
@@ -405,7 +438,15 @@ export class PodService extends Service {
 
         const correlationId = options?.correlationId ?? v4();
 
-        const umaToken = await this.retrieveUmaToken(fileUrl.href, 'Read', accessGrant, { correlationId: correlationId });
+        const forPersonalData = Array.isArray(accessGrant.credentialSubject.providedConsent.forPersonalData)
+            ? accessGrant.credentialSubject.providedConsent.forPersonalData
+            : [accessGrant.credentialSubject.providedConsent.forPersonalData];
+
+        const matchedPersonalData = forPersonalData.find((entry: string) => {
+            return fileUrl.href === entry || (entry.endsWith('/') && fileUrl.href.startsWith(entry));
+        });
+
+        const umaToken = await this.retrieveUmaToken(matchedPersonalData!, 'Read', accessGrant, { correlationId: correlationId });
         const authFetch = this.createUmaFetch(umaToken, { correlationId: correlationId });
 
         return await overwriteFile(

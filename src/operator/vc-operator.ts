@@ -33,7 +33,7 @@ export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : str
         const containerExists = (data: string[], resource: string) => {
             let found = false;
             data.forEach((url) => {
-                if (resource.startsWith(url)) {
+                if (url.endsWith("/") && resource.startsWith(url)) {
                     found = true;
                 }
             });
