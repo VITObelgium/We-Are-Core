@@ -52,6 +52,9 @@ export class VcService extends Service {
 
         log.debug(`[issueAccessRequest] Issuing access request.`);
 
+        await this.vcConfig.discover();
+        if(!this.vcConfig.issueEndpoint) throw Error(`[VcService.issueAccessRequest] No issue endpoint published on ${this.vcConfig.discoveryEndpoint.href}.`);
+
         const context = {} as { correlationId?: string};
         if (correlationId)
             context.correlationId = correlationId;
@@ -112,6 +115,9 @@ export class VcService extends Service {
      */
     async fetchAccessGrants(correlationId?: string, options?: { ownerWebId?: string, issuer?: string, purpose?: string, dataIris?: string[], access? : { read?: boolean, write?: boolean, append?: boolean }}): Promise<AccessGrant[]> {
         if(!this.oidcConfig) throw Error("[VcService.fetchAccessGrants] OIDC configuration is required to fetch access grants.");
+
+        await this.vcConfig.discover();
+        if(!this.vcConfig.deriveEndpoint) throw Error(`[VcService.fetchAccessGrants] No derive endpoint published on ${this.vcConfig.discoveryEndpoint.href}.`);
 
         // <editor-fold description="Create VC shape for querying ESS service.">
         const vcShape = {

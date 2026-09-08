@@ -25,8 +25,10 @@ export class OidcService {
      * @returns {Promise<void>} A promise that resolves when the login is complete.
      */
     async login(session: Session, handleRedirect?: Function): Promise<void> {
+        const openIdConfiguration = await this.oidcConfig.discover();
+
         const loginConfig = {
-            oidcIssuer: this.oidcConfig.loginEndpoint!.href,
+            oidcIssuer: openIdConfiguration.issuer ?? this.oidcConfig.url.href,
             clientId: this.oidcConfig.clientId,
             clientName: this.oidcConfig.clientName,
             clientSecret: this.oidcConfig.clientSecret,
@@ -48,6 +50,8 @@ export class OidcService {
      * @returns {Promise<any>} A promise that resolves to the token response.
      */
     async getToken(code: string, codeVerifier: string, state: string, grantType: string = 'authorization_code'): Promise<any> {
+        await this.oidcConfig.discover();
+
         const params = new URLSearchParams();
         params.append('client_id', this.oidcConfig.clientId);
         params.append('client_secret', this.oidcConfig.clientSecret);

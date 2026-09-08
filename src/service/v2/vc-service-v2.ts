@@ -41,6 +41,9 @@ export class VcServiceV2 extends Service {
 
         log.debug(`[fetchAccessGrants] Fetching access grants with filters [${JSON.stringify(filters)}].`);
 
+        await this.vcConfig.discover();
+        if(!this.vcConfig.queryEndpoint) throw new Error(`[VcServiceV2.fetchAccessGrants] No query endpoint published on ${this.vcConfig.discoveryEndpoint.href}.`);
+
         const defaults: AccessGrantFilter = {
             type: "SolidAccessGrant",
         }
@@ -54,7 +57,7 @@ export class VcServiceV2 extends Service {
         return await query(filters,
             {
                 fetch: createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: fetch}) || createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: createFetchWithAccessToken.bind(this.oidcConfig!)}),
-                queryEndpoint: this.vcConfig.queryEndpoint!
+                queryEndpoint: this.vcConfig.queryEndpoint
             })
     }
 }

@@ -16,6 +16,8 @@ export class TokenService extends Service {
     async requestAccessToken(dpopHeader?: string): Promise<any> {
         if(!this.oidcConfig) throw Error("[TokenService.requestAccessToken] OIDC configuration is required to request access token from We Are OIDC.");
 
+        await this.oidcConfig.discover();
+
         const body = new URLSearchParams({
             grant_type: 'client_credentials',
             client_id: this.oidcConfig.clientId,
@@ -47,6 +49,8 @@ export class TokenService extends Service {
      */
     async requestAccessTokenWithDpop(jwk: JWK ): Promise<any> {
         if(!this.oidcConfig) throw Error("[TokenService.requestAccessTokenWithDpop] OIDC configuration is required to request access token (with DPoP) from We Are OIDC.");
+
+        await this.oidcConfig.discover();
 
         return await this.requestAccessToken(await createDpop(this.oidcConfig.tokenEndpoint!.href, "POST", jwk));
     }
