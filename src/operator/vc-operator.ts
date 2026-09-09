@@ -10,10 +10,15 @@ import log from "loglevel";
  * @param {string} [options.recipientWebId] - The WebID of the recipient to check against the access grant.
  * @throws Will throw an error if the access grant is not valid.
  */
+const GCONSENT_NAMESPACE = "https://w3id.org/GConsent#";
+const ACL_NAMESPACE = "http://www.w3.org/ns/auth/acl#";
+
 export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : string, mode? : 'Read'|'Write'|'Append', options?:{ recipientWebId?: string }) => {
     log.debug(`[validateAccessGrant] Validating access grant [${accessGrant.id}].`);
 
-    if (accessGrant.credentialSubject.providedConsent.hasStatus !== "ConsentStatusExplicitlyGiven") {
+    // Values may be serialized in their abbreviated form or as full IRIs, depending on the VC provider.
+    const hasStatus = accessGrant.credentialSubject.providedConsent.hasStatus;
+    if (hasStatus !== "ConsentStatusExplicitlyGiven" && hasStatus !== `${GCONSENT_NAMESPACE}ConsentStatusExplicitlyGiven`) {
         const message= `Access grant [${accessGrant.id}] does not have status "ConsentStatusExplicitlyGiven".`;
         throw new Error(message);
     }
@@ -39,7 +44,8 @@ export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : str
         }
     }
 
-    if (mode && !accessGrant.credentialSubject.providedConsent.mode.includes(mode)) {
+    const grantedModes = accessGrant.credentialSubject.providedConsent.mode;
+    if (mode && !grantedModes.includes(mode) && !grantedModes.includes(`${ACL_NAMESPACE}${mode}`)) {
         const message = `Access grant [${accessGrant.id}] does not have mode "${mode}".`;
         throw new Error(message);
     }
