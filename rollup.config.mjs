@@ -17,13 +17,15 @@ export default {
             dir: "dist",
             entryFileNames: "[name].mjs",
             format: "esm",
-            preserveModules: true
+            preserveModules: true,
+            sourcemap: true
         },
         {
             dir: "dist",
             entryFileNames: "[name].js",
             format: "cjs",
-            preserveModules: true
+            preserveModules: true,
+            sourcemap: true
         }
     ],
     plugins: [
