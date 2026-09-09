@@ -29,7 +29,10 @@ export default {
     plugins: [
         typescript({
             // Use our own version of TypeScript, rather than the one bundled with the plugin:
-            typescript: require("typescript")
+            typescript: require("typescript"),
+            // Workaround for rollup-plugin-typescript2's default include glob no longer matching
+            // .ts files with picomatch >=2.3.2 (see https://github.com/ezolenko/rollup-plugin-typescript2/issues/480)
+            include: ["**/*.ts{,x}", "**/*.cts", "**/*.mts"]
         })
     ],
     external: [...Object.keys(pkg.dependencies)],
