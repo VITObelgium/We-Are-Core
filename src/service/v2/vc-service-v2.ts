@@ -8,6 +8,7 @@ import {OidcConfig} from "../../oidc-config";
 import {VcConfig} from "../../vc-config";
 // @ts-ignore
 import {AccessGrantFilter} from "@inrupt/solid-client-access-grants/dist/gConsent/query/query";
+import {TokenService} from "../token-service";
 
 /**
  * Service class for handling Verifiable Credential (VC) operations.
@@ -21,9 +22,10 @@ export class VcServiceV2 extends Service {
      * You can also choose to use the current user session to fetch the access grants, instead of using the back-end token fetched from the We Are OIDC.
      * @param {OidcConfig} oidcConfig - The OIDC configuration.
      * @param {VcConfig} vcConfig - The VC configuration.
+     * @param tokenService
      */
-    constructor(vcConfig: VcConfig, oidcConfig?: OidcConfig) {
-        super(oidcConfig);
+    constructor(vcConfig: VcConfig, oidcConfig?: OidcConfig, tokenService?: TokenService) {
+        super(oidcConfig, tokenService);
         this.vcConfig = vcConfig;
     }
 
@@ -56,8 +58,8 @@ export class VcServiceV2 extends Service {
 
         return await query(filters,
             {
-                fetch: createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: fetch}) || createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: createFetchWithAccessToken.bind(this.oidcConfig!)}),
-                queryEndpoint: this.vcConfig.queryEndpoint
+                fetch: createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: fetch}) || createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: createFetchWithAccessToken.bind( { oidc_config: this.oidcConfig!, token_service: this.tokenService! } )}),
+                queryEndpoint: this.vcConfig.queryEndpoint!
             })
     }
 }

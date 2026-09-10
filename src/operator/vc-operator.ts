@@ -1,11 +1,13 @@
 import {AccessGrant} from "@inrupt/solid-client-access-grants";
 import log from "loglevel";
 
+export type Mode = 'Read' | 'Write' | 'Append' | 'http://www.w3.org/ns/auth/acl#Read' | 'http://www.w3.org/ns/auth/acl#Write' | 'http://www.w3.org/ns/auth/acl#Append';
+
 /**
  * Validates an access grant's validity.
  * @param {AccessGrant} accessGrant - The access grant to validate.
  * @param {string} [resourceUrl] - The URL of the resource to check against the access grant.
- * @param {'Read'|'Write'|'Append'} [mode] - The access mode to check against the access grant.
+ * @param modes
  * @param {Object} [options] - Additional validation options.
  * @param {string} [options.recipientWebId] - The WebID of the recipient to check against the access grant.
  * @throws Will throw an error if the access grant is not valid.
@@ -13,7 +15,7 @@ import log from "loglevel";
 const GCONSENT_NAMESPACE = "https://w3id.org/GConsent#";
 const ACL_NAMESPACE = "http://www.w3.org/ns/auth/acl#";
 
-export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : string, mode? : 'Read'|'Write'|'Append', options?:{ recipientWebId?: string }) => {
+export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : string, modes? : Mode[]|Mode, options?:{ recipientWebId?: string }) => {
     log.debug(`[validateAccessGrant] Validating access grant [${accessGrant.id}].`);
 
     // Values may be serialized in their abbreviated form or as full IRIs, depending on the VC provider.
@@ -29,25 +31,41 @@ export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : str
     }
 
     if (resourceUrl) {
-        const containerExists = (forPersonalData: string[], resourceUrl: string) => {
+        const forPersonalData = Array.isArray(accessGrant.credentialSubject.providedConsent.forPersonalData)
+            ? accessGrant.credentialSubject.providedConsent.forPersonalData
+            : [accessGrant.credentialSubject.providedConsent.forPersonalData];
+
+        const containerExists = (data: string[], resource: string) => {
             let found = false;
-            forPersonalData.forEach((url) => {
-                if (resourceUrl.startsWith(url)) {
+            data.forEach((url) => {
+                if (url.endsWith("/") && resource.startsWith(url)) {
                     found = true;
                 }
             });
             return found;
         }
-        if (!accessGrant.credentialSubject.providedConsent.forPersonalData.includes(resourceUrl) && !containerExists(accessGrant.credentialSubject.providedConsent.forPersonalData, resourceUrl)) {
+        if (!forPersonalData.includes(resourceUrl) && !containerExists(forPersonalData, resourceUrl)) {
             const message = `Resource [${resourceUrl}] nor its container is not part of the access grant [${accessGrant.id}].`;
             throw new Error(message);
         }
     }
 
-    const grantedModes = accessGrant.credentialSubject.providedConsent.mode;
-    if (mode && !grantedModes.includes(mode) && !grantedModes.includes(`${ACL_NAMESPACE}${mode}`)) {
-        const message = `Access grant [${accessGrant.id}] does not have mode "${mode}".`;
-        throw new Error(message);
+    if (Array.isArray(modes)) {
+        for(let mode of modes) {
+            const normalized = mode.startsWith(ACL_NAMESPACE) ? `${ACL_NAMESPACE}${mode.charAt(ACL_NAMESPACE.length).toUpperCase() + mode.slice(ACL_NAMESPACE.length + 1).toLowerCase()}` : `${ACL_NAMESPACE}${mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()}`;
+
+            if (!accessGrant.credentialSubject.providedConsent.mode.includes(normalized)) {
+                const message = `Access grant [${accessGrant.id}] does not have mode "${normalized}".`;
+                throw new Error(message);
+            }
+        }
+    } else if(modes) {
+        const normalized = modes.startsWith(ACL_NAMESPACE) ? `${ACL_NAMESPACE}${modes.charAt(ACL_NAMESPACE.length).toUpperCase() + modes.slice(ACL_NAMESPACE.length + 1).toLowerCase()}` : `${ACL_NAMESPACE}${modes.charAt(0).toUpperCase() + modes.slice(1).toLowerCase()}`;
+
+        if (!accessGrant.credentialSubject.providedConsent.mode.includes(normalized)) {
+            const message = `Access grant [${accessGrant.id}] does not have mode "${normalized}".`;
+            throw new Error(message);
+        }
     }
 
     if (options?.recipientWebId && accessGrant.credentialSubject.providedConsent.isProvidedTo !== options?.recipientWebId) {

@@ -10,6 +10,7 @@ import {createFetchWithAccessToken, createFetchWithCorrelationAndRequestId} from
 import {Service} from "./service";
 import {OidcConfig} from "../oidc-config";
 import {VcConfig} from "../vc-config";
+import {TokenService} from "./token-service";
 
 /**
  * Service class for handling Verifiable Credential (VC) operations.
@@ -21,9 +22,10 @@ export class VcService extends Service {
      * Creates an instance of VcService.
      * @param {OidcConfig} oidcConfig - The OIDC configuration.
      * @param {VcConfig} vcConfig - The VC configuration.
+     * @param tokenService
      */
-    constructor(oidcConfig: OidcConfig, vcConfig: VcConfig) {
-        super(oidcConfig);
+    constructor(oidcConfig: OidcConfig, vcConfig: VcConfig, tokenService?: TokenService) {
+        super(oidcConfig, tokenService);
         this.vcConfig = vcConfig;
     }
 
@@ -71,7 +73,7 @@ export class VcService extends Service {
                 accessEndpoint: this.vcConfig.issueEndpoint!.href,
                 fetch: createFetchWithCorrelationAndRequestId.bind({
                     ...context,
-                    fetchFn: createFetchWithAccessToken.bind(this.oidcConfig)
+                    fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})
                 })
             }
         );
@@ -94,7 +96,7 @@ export class VcService extends Service {
             id,
         {
             fetch: createFetchWithCorrelationAndRequestId.bind({
-                ...context, fetchFn: createFetchWithAccessToken.bind(this.oidcConfig)
+                ...context, fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})
             })
         });
     }
@@ -164,7 +166,7 @@ export class VcService extends Service {
             context.correlationId = correlationId;
 
         return (await getVerifiableCredentialAllFromShape(this.vcConfig.deriveEndpoint!.href, vcShape, {
-            fetch: createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: createFetchWithAccessToken.bind(this.oidcConfig)}),
+            fetch: createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: createFetchWithAccessToken.bind({oidc_config: this.oidcConfig, token_service: this.tokenService})}),
         })) as AccessGrant[];
     }
 
