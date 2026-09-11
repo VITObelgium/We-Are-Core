@@ -11,12 +11,15 @@ import {TokenService} from "../service/token-service";
  * @returns {Promise<Response>} - A Promise that resolves to the Response object from the fetch request.
  * @this {OidcConfig}
  */
-export async function createFetchWithAccessToken(this: OidcConfig, requestInfo: RequestInfo | URL, requestInit?: RequestInit): Promise<Response> {
+export async function createFetchWithAccessToken(this: { oidc_config?: OidcConfig, token_service?: TokenService }, requestInfo: RequestInfo | URL, requestInit?: RequestInit): Promise<Response> {
     requestInit ||= {} as RequestInit;
     requestInit.method = requestInit.method || "GET";
     requestInit.headers = new Headers(requestInit.headers || {});
 
-    const tokenService = new TokenService(this);
+    let tokenService = this.token_service;
+    if(!tokenService) {
+        tokenService = new TokenService(this.oidc_config);
+    }
     const accessTokenInfo: { access_token: string } = await tokenService.requestAccessToken();
     requestInit.headers.append('Authorization', `Bearer ${accessTokenInfo.access_token}`);
 
@@ -32,12 +35,15 @@ export async function createFetchWithAccessToken(this: OidcConfig, requestInfo: 
  * @returns {Promise<Response>} - A Promise that resolves to the Response object from the fetch request.
  * @this {OidcConfig}
  */
-export async function createFetchWithIdToken(this: OidcConfig, requestInfo: RequestInfo | URL, requestInit?: RequestInit): Promise<Response> {
+export async function createFetchWithIdToken(this: { oidc_config?: OidcConfig, token_service?: TokenService }, requestInfo: RequestInfo | URL, requestInit?: RequestInit): Promise<Response> {
     requestInit ||= {} as RequestInit;
     requestInit.method = requestInit.method || "GET";
     requestInit.headers = new Headers(requestInit.headers || {});
 
-    const tokenService = new TokenService(this);
+    let tokenService = this.token_service;
+    if(!tokenService) {
+        tokenService = new TokenService(this.oidc_config);
+    }
     const accessTokenInfo: { id_token: string } = await tokenService.requestAccessToken();
     requestInit.headers.append('Authorization', `Bearer ${accessTokenInfo.id_token}`);
 

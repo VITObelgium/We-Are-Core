@@ -3,9 +3,6 @@
   "version": "1.0.16",
   "description": "A We Are library that contains helper methods that can be used when developing We Are apps.",
   "author": "VITO NV",
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "build": "rollup --config rollup.config.mjs"
   },
@@ -16,7 +13,8 @@
   "exports": {
     ".": {
       "import": "./dist/main.mjs",
-      "require": "./dist/main.js"
+      "require": "./dist/main.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "files": [
