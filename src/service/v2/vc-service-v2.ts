@@ -59,7 +59,7 @@ export class VcServiceV2 extends Service {
         return await query(filters,
             {
                 fetch: createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: fetch}) || createFetchWithCorrelationAndRequestId.bind({...context, fetchFn: createFetchWithAccessToken.bind( { oidc_config: this.oidcConfig!, token_service: this.tokenService! } )}),
-                queryEndpoint: this.vcConfig.queryEndpoint!
+                queryEndpoint: this.vcConfig.queryEndpoint
             })
     }
 }

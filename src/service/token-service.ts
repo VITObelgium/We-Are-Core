@@ -19,6 +19,8 @@ export class TokenService extends Service {
     async requestAccessToken(dpopHeader?: string, scopes = ""): Promise<any> {
         if(!this.oidcConfig) throw Error("[TokenService.requestAccessToken] OIDC configuration is required to request access token from We Are OIDC.");
 
+        await this.oidcConfig.discover();
+
         const accessTokenCacheKey = `at:${scopes}`;
         const idTokenCacheKey = `id:${scopes}`;
 
@@ -33,8 +35,6 @@ export class TokenService extends Service {
                 ...cachedIdToken.token
             };
         }
-
-        await this.oidcConfig.discover();
 
         const body = new URLSearchParams({
             grant_type: 'client_credentials',

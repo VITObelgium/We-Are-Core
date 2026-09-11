@@ -50,9 +50,10 @@ export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : str
         }
     }
 
+
     if (Array.isArray(modes)) {
         for(let mode of modes) {
-            const normalized = mode.startsWith(ACL_NAMESPACE) ? `${ACL_NAMESPACE}${mode.charAt(ACL_NAMESPACE.length).toUpperCase() + mode.slice(ACL_NAMESPACE.length + 1).toLowerCase()}` : `${ACL_NAMESPACE}${mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()}`;
+            const normalized = mode.startsWith('http://www.w3.org/ns/auth/acl#') ? `http://www.w3.org/ns/auth/acl#${mode.charAt('http://www.w3.org/ns/auth/acl#'.length).toUpperCase() + mode.slice('http://www.w3.org/ns/auth/acl#'.length + 1).toLowerCase()}` : `http://www.w3.org/ns/auth/acl#${mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()}`;
 
             if (!accessGrant.credentialSubject.providedConsent.mode.includes(normalized)) {
                 const message = `Access grant [${accessGrant.id}] does not have mode "${normalized}".`;
@@ -60,7 +61,7 @@ export const validateAccessGrant = (accessGrant: AccessGrant, resourceUrl? : str
             }
         }
     } else if(modes) {
-        const normalized = modes.startsWith(ACL_NAMESPACE) ? `${ACL_NAMESPACE}${modes.charAt(ACL_NAMESPACE.length).toUpperCase() + modes.slice(ACL_NAMESPACE.length + 1).toLowerCase()}` : `${ACL_NAMESPACE}${modes.charAt(0).toUpperCase() + modes.slice(1).toLowerCase()}`;
+        const normalized = modes.startsWith('http://www.w3.org/ns/auth/acl#') ? `http://www.w3.org/ns/auth/acl#${modes.charAt('http://www.w3.org/ns/auth/acl#'.length).toUpperCase() + modes.slice('http://www.w3.org/ns/auth/acl#'.length + 1).toLowerCase()}` : `http://www.w3.org/ns/auth/acl#${modes.charAt(0).toUpperCase() + modes.slice(1).toLowerCase()}`;
 
         if (!accessGrant.credentialSubject.providedConsent.mode.includes(normalized)) {
             const message = `Access grant [${accessGrant.id}] does not have mode "${normalized}".`;
