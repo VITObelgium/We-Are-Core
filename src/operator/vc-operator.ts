@@ -7,7 +7,7 @@ export type Mode = 'Read' | 'Write' | 'Append' | 'http://www.w3.org/ns/auth/acl#
  * Validates an access grant's validity.
  * @param {AccessGrant} accessGrant - The access grant to validate.
  * @param {string} [resourceUrl] - The URL of the resource to check against the access grant.
- * @param modes
+ * @param {Mode|Mode[]} [modes] - The access mode(s) to check against the access grant, either abbreviated or as full ACL IRIs.
  * @param {Object} [options] - Additional validation options.
  * @param {string} [options.recipientWebId] - The WebID of the recipient to check against the access grant.
  * @throws Will throw an error if the access grant is not valid.
