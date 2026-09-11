@@ -77,8 +77,8 @@ The ```vc-operator``` has a helper function which enable you to validate access 
 
 Under ```service```, service classes are defined that help you interact with the pod.
 
-### athumi-service
-In order to be able to interact with a pod, a pod and webId need to exist. That is the responsibility of the ```AthumiService```.
+### web-id-service
+In order to be able to interact with a pod, a pod and webId need to exist. That is the responsibility of the ```WebIdService```.
 It offers you the functionality to provision and delete a webId via the Athumi endpoints.
 
 ### oidc-service

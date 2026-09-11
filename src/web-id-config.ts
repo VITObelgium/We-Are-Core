@@ -1,14 +1,14 @@
 /**
- * Configuration class for Athumi.
+ * Configuration class for the Web ID provisioning (Athumi) endpoints.
  */
-export class AthumiConfig {
+export class WebIdConfig {
     url: URL;
     webPath: string;
     webEndpoint: URL;
 
     /**
-     * Creates an instance of AthumiConfig.
-     * @param {URL} url - The base URL for Athumi.
+     * Creates an instance of WebIdConfig.
+     * @param {URL} url - The base URL for the Web ID provisioning service.
      * @param {string} webPath - The path for the web endpoint.
      */
     constructor(url: URL, webPath: string) {
